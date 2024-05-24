@@ -96,7 +96,7 @@ mod echeck_decoys_template {
             // panic!("Incorrect number of decoys");
             // }
 
-            let input_pub_keys = [other_input1, other_input2, other_input3]
+            let mut input_pub_keys = [other_input1, other_input2, other_input3]
                 .iter()
                 .map(|address| {
                     let owner: RistrettoPublicKeyBytes =
@@ -110,6 +110,14 @@ mod echeck_decoys_template {
                 })
                 .collect::<Vec<RistrettoPoint>>();
 
+            input_pub_keys.insert(
+                0,
+                CompressedRistretto::from_slice(self.owner.as_bytes())
+                    .unwrap()
+                    .decompress()
+                    .unwrap(),
+            );
+
             let input_set = Arc::new(InputSet::new(&input_pub_keys));
 
             let params = Arc::new(Parameters::new(2, 2).unwrap());
@@ -117,13 +125,33 @@ mod echeck_decoys_template {
                 .unwrap()
                 .decompress()
                 .unwrap();
-            let statement = Statement::new(&params, &input_set, &decompressed_linking_tag).unwrap();
+            let statement = match Statement::new(&params, &input_set, &decompressed_linking_tag) {
+                Ok(statement) => statement,
+                Err(e) => panic!("Error creating statement: {:?}", e),
+            };
             let mut transcript = Transcript::new(b"Test transcript");
 
             let proof = TriptychProof::from_bytes(&triptych_proof).unwrap();
-            proof.verify(&statement, &mut transcript).unwrap();
+            match proof.verify(&statement, &mut transcript) {
+                Ok(_) => {
+                    // println!("Proof verified");
+                }
+                Err(e) => {
+                    panic!("Proof verification failed: {:?}", e);
+                }
+            }
 
-            todo!()
+            Self::up(to, self.chain_rules.clone());
+            Self::up(self.owner.clone(), self.chain_rules.clone())
+
+            Component::new(Self {
+                owner,
+                chain_rules: rules,
+            })
+            .with_access_rules(AccessRules::allow_all())
+            .with_address_allocation(address_alloc)
+            .create()
+
         }
 
         pub fn get_owner(&self) -> RistrettoPublicKeyBytes {

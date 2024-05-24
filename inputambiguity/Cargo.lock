@@ -663,8 +663,7 @@ dependencies = [
 [[package]]
 name = "triptych"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "525f8ba6215b5f4adccf23f10ae50e4aa995c93a84be626b613c539f56a1325f"
+source = "git+https://github.com/stringhandler/triptych.git?branch=st-more-error-info#28613e83e48b5f703d62bc076b2c385b7f4d710e"
 dependencies = [
  "blake3",
  "crypto-bigint",

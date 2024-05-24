@@ -8,7 +8,8 @@ edition = "2021"
 tari_template_abi = { git = "https://github.com/tari-project/tari-dan.git", branch = "development", package = "tari_template_abi" }
 tari_template_lib = { git = "https://github.com/tari-project/tari-dan.git", branch = "development", package = "tari_template_lib" }
 serde = "*"
-triptych = { version = "0.1.0", default-features = false, features = [] }
+triptych = { git = "https://github.com/stringhandler/triptych.git", branch = "st-more-error-info", default-features = false, features = [
+] }
 curve25519-dalek = { version = "4.1.1", default-features = false, features = [
 ] }
 merlin = { version = "3.0.0", default-features = false, features = [] }
