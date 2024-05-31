@@ -12,6 +12,7 @@ use triptych::Statement;
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct ChainRules {
     resource_address: ResourceAddress,
+    linking_tags_address: ResourceAddress,
 }
 
 #[template]
@@ -40,8 +41,12 @@ mod echeck_decoys_template {
                 .with_token_symbol(&token_symbol)
                 .build();
 
+            let linking_tags_address = ResourceBuilder::non_fungible()
+                .with_token_symbol(&format!("{}_linking", token_symbol))
+                .build();
             let chain_rules = ChainRules {
                 resource_address: resource,
+                linking_tags_address: linking_tags_address,
             };
 
             // let rules_component = Component::new(chain_rules).create();
@@ -82,11 +87,12 @@ mod echeck_decoys_template {
         // }
 
         pub fn spend(
-            &mut self,
+            &self,
             other_input1: ComponentAddress,
             other_input2: ComponentAddress,
             other_input3: ComponentAddress,
             to: RistrettoPublicKeyBytes,
+            change_addr: RistrettoPublicKeyBytes,
             linking_tag: RistrettoPublicKeyBytes,
             triptych_proof: Vec<u8>,
         ) -> (Component<Self>, Component<Self>) {
@@ -121,37 +127,37 @@ mod echeck_decoys_template {
             let input_set = Arc::new(InputSet::new(&input_pub_keys));
 
             let params = Arc::new(Parameters::new(2, 2).unwrap());
-            let decompressed_linking_tag = CompressedRistretto::from_slice(linking_tag.as_bytes())
-                .unwrap()
-                .decompress()
-                .unwrap();
-            let statement = match Statement::new(&params, &input_set, &decompressed_linking_tag) {
-                Ok(statement) => statement,
-                Err(e) => panic!("Error creating statement: {:?}", e),
-            };
-            let mut transcript = Transcript::new(b"Test transcript");
 
+            let linking_tag =
+                CompressedRistretto::from_slice(linking_tag.as_bytes())?.decompress()?;
+            let statement = TriptychStatement::new(&params, &input_set, &decompressed_linking_tag)?;
+            let mut transcript = Transcript::new(b"<tx data>");
             let proof = TriptychProof::from_bytes(&triptych_proof).unwrap();
             match proof.verify(&statement, &mut transcript) {
-                Ok(_) => {
-                    // println!("Proof verified");
-                }
+                Ok(_) => {}
                 Err(e) => {
                     panic!("Proof verification failed: {:?}", e);
                 }
             }
+            let bucket =
+                res_manager.mint_non_fungible(NonFungibleId::from_u256(linking_tag_u256), &{}, &{});
 
-            Self::up(to, self.chain_rules.clone());
-            Self::up(self.owner.clone(), self.chain_rules.clone())
+            let dest = Self::up(to, self.chain_rules.clone());
+            let change = Self::up(change_addr, self.chain_rules.clone());
 
-            Component::new(Self {
-                owner,
-                chain_rules: rules,
-            })
-            .with_access_rules(AccessRules::allow_all())
-            .with_address_allocation(address_alloc)
-            .create()
+            // Get the resource manager
+            let mut res_manager = ResourceManager::get(self.chain_rules.linking_tags_address);
 
+            let mut u256id = [0u8; 32];
+
+            u256id.copy_from_slice(&linking_tag.as_bytes()[..32]);
+
+            // Mint the NFT
+            let bucket = res_manager.mint_non_fungible(NonFungibleId::from_u256(u256id), &{}, &{});
+
+            bucket.burn();
+
+            (dest, change)
         }
 
         pub fn get_owner(&self) -> RistrettoPublicKeyBytes {
